@@ -119,21 +119,41 @@ app.get("/", (_req, res) => {
   res.send("Sokhon Portfolio Bot is running!");
 });
 
-app.post(
-  "/telegram",
-  webhookCallback(bot, "express")
-);
-
 const PORT = Number(process.env.PORT) || 3000;
+const WEBHOOK_URL = process.env.WEBHOOK_URL;
+
+// Register webhook route ONLY in production
+if (WEBHOOK_URL) {
+  app.post(
+    "/telegram",
+    webhookCallback(bot, "express")
+  );
+}
 
 app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
 
-  if (process.env.WEBHOOK_URL) {
-    await bot.api.setWebhook(
-      `${process.env.WEBHOOK_URL}/telegram`
-    );
+  try {
+    if (WEBHOOK_URL) {
+      // Production: Telegram Webhook
+      await bot.api.setWebhook(
+        `${WEBHOOK_URL}/telegram`
+      );
 
-    console.log("Telegram webhook configured!");
+      console.log("Telegram webhook configured!");
+    } else {
+      // Local: Telegram Long Polling
+      await bot.api.deleteWebhook();
+
+      console.log("Starting local bot...");
+
+      bot.start({
+        onStart: () => {
+          console.log("Telegram bot is running locally!");
+        }
+      });
+    }
+  } catch (error) {
+    console.error("Bot startup error:", error);
   }
 });
